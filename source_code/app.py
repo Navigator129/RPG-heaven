@@ -120,4 +120,6 @@ def api_state() -> Any:
 
 if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.getenv("FLASK_PORT", "5001"))
+    print(f"RPG Heaven Web UI: http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=True)
