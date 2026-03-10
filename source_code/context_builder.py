@@ -86,6 +86,12 @@ class ContextBuilder:
     def add_transcript_entry(self, role: str, text: str, turn_id: int) -> None:
         self._transcript.append({"role": role, "text": text, "turn_id": turn_id})
 
+    def reload_transcript_from_events(self, window: int | None = None) -> None:
+        """Rebuild _transcript from event log (for loaded games)."""
+        n = window or self.transcript_window
+        entries = self.event_log.get_transcript_events(window=n)
+        self._transcript = [{"role": r, "text": t, "turn_id": tid} for tid, r, t in entries]
+
     # ── main build ───────────────────────────────────────────────────────
 
     def build(self, current_turn: int, keywords: list[str] | None = None) -> ContextBundle:
@@ -131,14 +137,7 @@ class ContextBuilder:
     def _get_entities_at_location(self, location: Entity | None) -> list[Entity]:
         if location is None:
             return []
-        all_entities = self.store.list_entities()
-        present = []
-        for e in all_entities:
-            if e.state.get("location_id") == location.id:
-                present.append(e)
-            elif e.id == location.id:
-                continue
-        return present
+        return self.store.list_entities_at_location(location.id)
 
     # ── facts ────────────────────────────────────────────────────────────
 
@@ -159,10 +158,10 @@ class ContextBuilder:
     # ── threads ──────────────────────────────────────────────────────────
 
     def _retrieve_threads(self, current_turn: int) -> list[dict[str, Any]]:
+        from models import EntityType
         threads: list[dict[str, Any]] = []
-        quest_entities = self.store.list_entities()
-        for e in quest_entities:
-            if e.type.value == "quest" and e.state.get("status") != "completed":
+        for e in self.store.list_entities(entity_type=EntityType.QUEST):
+            if e.state.get("status") != "completed":
                 threads.append({
                     "type": "quest",
                     "id": e.id,

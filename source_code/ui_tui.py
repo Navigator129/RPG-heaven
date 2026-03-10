@@ -17,6 +17,7 @@ from rich.text import Text
 
 from models import SessionContract
 from orchestrator import Orchestrator, TurnResult
+from save_utils import ensure_save_dir, list_saves, save_exists, sanitize_save_name
 
 
 console = Console()
@@ -174,17 +175,53 @@ def _show_facts(orch: Orchestrator) -> None:
     console.print(table)
 
 
+# ── save slot selection ───────────────────────────────────────────────────
+
+def prompt_save_mode() -> tuple[str, bool]:
+    """Returns (save_name, is_new_game)."""
+    saves = list_saves()
+    if saves:
+        console.print("\n[bold cyan]── 选择模式 ──[/bold cyan]")
+        console.print("  1) 新游戏 (新建存档)")
+        console.print("  2) 载入 (选择已有存档)")
+        choice = console.input("[cyan]请选择 (1/2): [/cyan]").strip() or "1"
+        if choice == "2":
+            console.print("\n[cyan]已有存档:[/cyan]")
+            for i, name in enumerate(saves, 1):
+                console.print(f"  {i}) {name}")
+            idx = console.input("[cyan]输入编号: [/cyan]").strip()
+            try:
+                i = int(idx)
+                if 1 <= i <= len(saves):
+                    return saves[i - 1], False
+            except ValueError:
+                pass
+            console.print("[yellow]无效选择，使用新游戏[/yellow]")
+    save_name = console.input("\n[cyan]存档名[/cyan] (将新建存档): ").strip() or "default"
+    return sanitize_save_name(save_name), True
+
+
 # ── main loop ────────────────────────────────────────────────────────────
 
 def main() -> None:
     os.makedirs("data", exist_ok=True)
     show_banner()
 
-    contract = session_zero()
-    orch = Orchestrator(session_contract=contract)
-    orch.bootstrap_session(contract.genre, contract.style, contract.boundaries)
+    save_name, is_new = prompt_save_mode()
+    db_path = ensure_save_dir(save_name)
 
-    console.print(f"\n[green]世界已创建！题材：{contract.genre}，风格：{contract.style}[/green]")
+    if is_new:
+        contract = session_zero()
+        orch = Orchestrator(db_path=db_path, session_contract=contract)
+        orch.bootstrap_session(contract.genre, contract.style, contract.boundaries)
+        console.print(f"\n[green]世界已创建！存档：{save_name} | 题材：{contract.genre}，风格：{contract.style}[/green]")
+    else:
+        if not save_exists(save_name):
+            console.print(f"[red]存档不存在：{save_name}[/red]")
+            return
+        orch = Orchestrator(db_path=db_path)
+        console.print(f"\n[green]已载入存档：{save_name}[/green]")
+
     console.print("[dim]输入「开始」来启动第一幕，或直接描述你想做的事。[/dim]\n")
 
     debug_mode = False

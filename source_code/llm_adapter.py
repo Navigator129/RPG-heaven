@@ -76,16 +76,20 @@ class LLMAdapter:
 
     # ── completion with retry ────────────────────────────────────────────
 
-    def _completion_with_retry(self, messages: list[dict[str, str]]) -> str:
+    def _completion_with_retry(
+        self, messages: list[dict[str, str]], *, json_mode: bool = True
+    ) -> str:
         last_error: Exception | None = None
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
-                    temperature=self.temperature,
-                    response_format={"type": "json_object"},
-                )
+                resp = self.client.chat.completions.create(**kwargs)  # type: ignore[arg-type]
                 content = resp.choices[0].message.content or ""
                 return content
             except Exception as exc:
@@ -126,8 +130,6 @@ class LLMAdapter:
             },
         ]
         try:
-            raw = self._completion_with_retry(messages)
-            data = json.loads(raw)
-            return data.get("narrative", raw)
+            return self._completion_with_retry(messages, json_mode=False)
         except Exception:
             return original_narrative

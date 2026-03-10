@@ -74,7 +74,13 @@ class Orchestrator:
         contract = session_contract or SessionContract()
         self.ctx_builder = ContextBuilder(self.store, self.event_log, contract)
 
-        self.current_turn: int = self.event_log.get_latest_turn_id() + 1
+        latest = self.event_log.get_latest_turn_id()
+        self.current_turn = latest + 1
+        if latest > 0:
+            self.ctx_builder.reload_transcript_from_events()
+            saved = self.event_log.get_session_contract()
+            if saved:
+                self.ctx_builder.session_contract = SessionContract.model_validate(saved)
 
     # ── main turn ────────────────────────────────────────────────────────
 
@@ -125,6 +131,12 @@ class Orchestrator:
         result.system_messages = self._format_system_messages(committed_events)
 
         self.ctx_builder.add_transcript_entry("gm", narrative, turn_id)
+        self.event_log.append(GameEvent(
+            turn_id=turn_id,
+            type="NarrativeProduced",
+            payload={"narrative": narrative},
+            caused_by=CausedBy.LLM,
+        ))
 
         if turn_id % self.SNAPSHOT_INTERVAL == 0:
             self.event_log.save_snapshot(turn_id, self.store.export_state())

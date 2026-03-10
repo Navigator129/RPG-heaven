@@ -26,18 +26,16 @@ class RulesEngine:
     """Lightweight d20-based rules engine with reproducible RNG."""
 
     global_seed: str = "rpg-heaven-v0"
-    _rng_cache: dict[str, random.Random] = field(default_factory=dict)
 
     # ── deterministic RNG ────────────────────────────────────────────────
 
     def _rng_for(self, event_id: str) -> random.Random:
-        if event_id not in self._rng_cache:
-            seed_bytes = hashlib.sha256(
-                f"{self.global_seed}:{event_id}".encode()
-            ).digest()
-            seed_int = int.from_bytes(seed_bytes[:8], "big")
-            self._rng_cache[event_id] = random.Random(seed_int)
-        return self._rng_cache[event_id]
+        """Create a seeded RNG for this event. No cache — each event_id is unique."""
+        seed_bytes = hashlib.sha256(
+            f"{self.global_seed}:{event_id}".encode()
+        ).digest()
+        seed_int = int.from_bytes(seed_bytes[:8], "big")
+        return random.Random(seed_int)
 
     # ── dice parsing & rolling ───────────────────────────────────────────
 

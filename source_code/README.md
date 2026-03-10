@@ -4,6 +4,77 @@
 
 ---
 
+## 使用 / 开局流程
+
+### 1. 安装依赖
+
+```bash
+cd source_code
+pip install -r requirements.txt
+```
+
+需要 Python 3.10+，并保证可以访问一个 OpenAI 兼容的 Chat Completion 接口。
+
+### 2. 配置 LLM
+
+```bash
+export OPENAI_API_KEY="your-key-here"
+# 如使用其他 OpenAI 兼容端点（如自建 vLLM、Ollama 等）：
+# export OPENAI_BASE_URL="https://your-compatible-endpoint"
+```
+
+### 3. 启动游戏
+
+**方式 A：终端 TUI**
+
+```bash
+cd source_code
+python3 ui_tui.py
+```
+
+**方式 B：Web UI**
+
+```bash
+cd source_code
+python3 app.py
+```
+
+在浏览器打开 http://localhost:5000，界面有 **开始** / **载入** / **退出** 三个按钮。选择开始后，上半部分为 AI 叙事，下半部分为玩家输入框。
+
+### 4. 存档槽
+
+每次开始前需输入**存档名**，不同存档的故事、数据、世界观完全隔离，互不影响：
+
+- 数据存放在 `data/<存档名>/rpg.db`
+- TUI：可选择「新游戏」或「载入」，新游戏输入存档名，载入从列表选择
+- Web：开始需填写存档名 + 题材/风格，载入从列表点击已有存档
+
+### 5. TUI 流程与 Session Zero
+
+启动 TUI 后会进入 **Session Zero**（世界设定）：
+
+- 选择题材：奇幻 / 赛博 / 克苏鲁 / 武侠 / 都市怪谈 / ...
+- 选择风格：轻松 / 严肃 / 黑色 / 喜剧 / 高危险 / ...
+- 设置边界：不想出现的内容（可留空）
+
+之后每回合在提示符下输入你的行动（自然语言），系统会：
+
+- 基于当前世界真相和事件日志构建上下文
+- 调用 LLM 生成叙事与结构化提案
+- 通过规则层进行掷骰 / 检定与一致性校验
+- 更新 Canon Store 与 Event Log，并输出叙事与系统消息
+
+常用命令（在 `> 你的行动:` 下输入）：
+
+- `/help`：查看命令列表
+- `/debug`：打开/关闭调试面板
+- `/state`：查看当前实体列表
+- `/facts`：查看已确立的事实
+- `/save`：手动保存快照
+- `/quit`：退出
+
+---
+
 ## 架构总览
 
 ```
@@ -131,7 +202,10 @@ LLM 扮演 GM，生成文本并提出世界变更提案。
 ## 文件清单
 
 ```
-source code/
+source_code/
+├── app.py                # Web UI (Flask)
+├── templates/
+│   └── index.html        # Web 主页面
 ├── models.py              # Layer 0: 数据模型
 ├── canon_store.py         # Layer 1: 状态层 — 实体/事实/秘密 CRUD
 ├── event_log.py           # Layer 1: 状态层 — 事件溯源
@@ -141,24 +215,12 @@ source code/
 ├── narrative_patcher.py   # Layer 3: 叙事层 — 叙事修复
 ├── orchestrator.py        # Layer 4: 编排层 — 主循环
 ├── context_builder.py     # Layer 4: 编排层 — 上下文构建
+├── save_utils.py          # 存档槽工具 — 按存档名隔离 data/<name>/
 ├── ui_tui.py              # Layer 5: 交互层 — 终端界面
 ├── requirements.txt       # Python 依赖
 ├── data/                  # SQLite 数据库 & 快照（运行时生成）
 └── README.md              # 本文档
 ```
-
----
-
-## 快速开始
-
-```bash
-cd "source code"
-pip install -r requirements.txt
-export OPENAI_API_KEY="your-key-here"
-python ui_tui.py
-```
-
-可通过 `OPENAI_BASE_URL` 环境变量指向任意 OpenAI 兼容端点（如本地 Ollama、vLLM 等）。
 
 ---
 
